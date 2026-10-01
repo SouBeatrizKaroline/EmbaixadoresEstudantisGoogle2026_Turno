@@ -1,3 +1,4 @@
+import { useDialogFocus } from '../useDialogFocus';
 import React, { useState } from 'react';
 import { FinancePot } from '../types';
 
@@ -13,10 +14,12 @@ export interface StarterSetup {
 }
 
 interface WelcomeModalProps {
+  onClose?: () => void;
   onStart: (pots: FinancePot[], dayLabel: string, setup: StarterSetup) => void;
 }
 
-export const WelcomeModal: React.FC<WelcomeModalProps> = ({ onStart }) => {
+export const WelcomeModal: React.FC<WelcomeModalProps> = ({ onStart, onClose }) => {
+  const dialogRef = useDialogFocus(true, onClose);
   const [dayLabel, setDayLabel] = useState('Minha semana');
   const [budget, setBudget] = useState({ essential: '180', flexible: '70', reserve: '50' });
   const [setup, setSetup] = useState<StarterSetup>({ course: '', className: '', classTime: '08:00', hasWork: false, workTitle: 'Estágio', workTime: '14:00', sleepTime: '23:00', wakeTime: '07:00' });
@@ -32,9 +35,10 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ onStart }) => {
   };
 
   return (
-    <div className="welcome-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+    <div ref={dialogRef} tabIndex={-1} className="welcome-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
       <div className="card-pixel welcome-modal__card">
-        <span className="welcome-modal__eyebrow">PRIMEIRO TURNO</span>
+        <span className="welcome-modal__eyebrow">CONFIGURAR TURNO</span>
+        {onClose && <button type="button" className="btn-retro" onClick={onClose}>Cancelar configuração</button>}
         <h1 id="welcome-title" className="pixel-title">Bem-vinda ao TURNO</h1>
         <p className="welcome-modal__lead">Seu dia não precisa caber em um modelo pronto. Vamos montar uma semana que tenha a ver com você.</p>
         <div className="welcome-guide">
@@ -50,19 +54,19 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ onStart }) => {
           <div className="welcome-form__grid welcome-form__grid--context">
             <label>Curso ou área (opcional)<input placeholder="Ex.: ADS, Direito..." value={setup.course} onChange={(event) => setSetup({ ...setup, course: event.target.value })} /></label>
             <label>Disciplina ou aula<input placeholder="Ex.: Estrutura de Dados" value={setup.className} onChange={(event) => setSetup({ ...setup, className: event.target.value })} /></label>
-            <label>Horário da aula<input type="time" value={setup.classTime} onChange={(event) => setSetup({ ...setup, classTime: event.target.value })} /></label>
+            <label>Horário da aula<input type="time" required value={setup.classTime} onChange={(event) => setSetup({ ...setup, classTime: event.target.value })} /></label>
           </div>
           <label className="welcome-check"><input type="checkbox" checked={setup.hasWork} onChange={(event) => setSetup({ ...setup, hasWork: event.target.checked })} /> Tenho estágio/trabalho fixo nesta rotina</label>
-          {setup.hasWork && <div className="welcome-form__grid"><label>Nome<input value={setup.workTitle} onChange={(event) => setSetup({ ...setup, workTitle: event.target.value })} /></label><label>Horário<input type="time" value={setup.workTime} onChange={(event) => setSetup({ ...setup, workTime: event.target.value })} /></label></div>}
+          {setup.hasWork && <div className="welcome-form__grid"><label>Nome<input value={setup.workTitle} onChange={(event) => setSetup({ ...setup, workTitle: event.target.value })} /></label><label>Horário<input type="time" required value={setup.workTime} onChange={(event) => setSetup({ ...setup, workTime: event.target.value })} /></label></div>}
           <p className="welcome-form__label">Seu ritmo de sono (você poderá ajustar depois)</p>
-          <div className="welcome-form__grid"><label>Hora de dormir<input type="time" value={setup.sleepTime} onChange={(event) => setSetup({ ...setup, sleepTime: event.target.value })} /></label><label>Hora de acordar<input type="time" value={setup.wakeTime} onChange={(event) => setSetup({ ...setup, wakeTime: event.target.value })} /></label></div>
+          <div className="welcome-form__grid"><label>Hora de dormir<input type="time" required value={setup.sleepTime} onChange={(event) => setSetup({ ...setup, sleepTime: event.target.value })} /></label><label>Hora de acordar<input type="time" required value={setup.wakeTime} onChange={(event) => setSetup({ ...setup, wakeTime: event.target.value })} /></label></div>
           <p className="welcome-form__label">Quanto você quer separar nesta semana?</p>
           <div className="welcome-form__grid">
-            <label>Essenciais<input type="number" min="0" step="1" value={budget.essential} onChange={(event) => setBudget({ ...budget, essential: event.target.value })} /></label>
-            <label>Lazer<input type="number" min="0" step="1" value={budget.flexible} onChange={(event) => setBudget({ ...budget, flexible: event.target.value })} /></label>
-            <label>Reserva<input type="number" min="0" step="1" value={budget.reserve} onChange={(event) => setBudget({ ...budget, reserve: event.target.value })} /></label>
+            <label>Essenciais<input type="number" min="0" step="0.01" value={budget.essential} onChange={(event) => setBudget({ ...budget, essential: event.target.value })} /></label>
+            <label>Lazer<input type="number" min="0" step="0.01" value={budget.flexible} onChange={(event) => setBudget({ ...budget, flexible: event.target.value })} /></label>
+            <label>Reserva<input type="number" min="0" step="0.01" value={budget.reserve} onChange={(event) => setBudget({ ...budget, reserve: event.target.value })} /></label>
           </div>
-          <small>Você poderá ajustar os valores e registrar extras depois. Nada aqui é uma obrigação.</small>
+          <small>Para alterar os limites depois, configure uma nova semana. Isso substitui os blocos e zera os gastos atuais. Nada aqui é uma obrigação.</small>
           <button className="btn-retro welcome-form__submit" type="submit">Começar meu turno →</button>
         </form>
       </div>

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { elapsedMinutes, remainingSeconds } from '../../state';
 import { TopicFamiliarity } from '../../types';
 
 interface FocusSessionProps {
   topicTitle: string;
+  isActive: boolean;
   linkedTaskTitle?: string;
   onFinish: (result: TopicFamiliarity, minutes: number) => void;
   onCancel: () => void;
@@ -10,6 +12,7 @@ interface FocusSessionProps {
 
 export const FocusSession: React.FC<FocusSessionProps> = ({
   topicTitle,
+  isActive,
   linkedTaskTitle,
   onFinish,
   onCancel
@@ -20,19 +23,53 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const [hasStarted, setHasStarted] = useState(false);
   const [isReflecting, setIsReflecting] = useState(false);
 
-  useEffect(() => {
-    let timer: number | undefined;
-    if (isRunning && secondsLeft > 0 && !isReflecting) {
-      timer = window.setInterval(() => {
-        setSecondsLeft(prev => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [isRunning, secondsLeft, isReflecting]);
+  const [deadline, setDeadline] = useState<number>();
 
   useEffect(() => {
-    if (secondsLeft === 0 && hasStarted) setIsReflecting(true);
-  }, [secondsLeft, hasStarted]);
+    if (!isRunning || deadline === undefined || isReflecting) return;
+    const tick = () => {
+      const remaining = remainingSeconds(deadline, Date.now());
+      setSecondsLeft(remaining);
+      if (remaining === 0) { setIsRunning(false); setIsReflecting(true); }
+    };
+    tick();
+    const timer = window.setInterval(tick, 250);
+    return () => window.clearInterval(timer);
+  }, [isRunning, deadline, isReflecting]);
+
+  useEffect(() => {
+    if (!isActive && isRunning && deadline !== undefined) {
+      const remaining = remainingSeconds(deadline, Date.now());
+      setSecondsLeft(remaining);
+      setIsRunning(false);
+      if (remaining === 0) setIsReflecting(true);
+    }
+  }, [isActive, isRunning, deadline]);
+
+  const pauseSession = () => {
+    if (deadline !== undefined) setSecondsLeft(remainingSeconds(deadline, Date.now()));
+    setIsRunning(false);
+  };
+
+  const concludeSession = () => {
+    if (isRunning) pauseSession();
+    setIsReflecting(true);
+  };
+
+  const cancelSession = () => {
+    setIsRunning(false);
+    setHasStarted(false);
+    setIsReflecting(false);
+    setSecondsLeft(durationMinutes * 60);
+    onCancel();
+  };
+
+  const finishSession = (result: TopicFamiliarity) => {
+    onFinish(result, elapsedMinutes(durationMinutes, secondsLeft));
+    setIsReflecting(false);
+    setHasStarted(false);
+    setSecondsLeft(durationMinutes * 60);
+  };
 
   const chooseDuration = (minutes: number) => {
     if (hasStarted) return;
@@ -42,6 +79,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
   const startSession = () => {
     setHasStarted(true);
+    setDeadline(Date.now() + secondsLeft * 1000);
     setIsRunning(true);
   };
 
@@ -56,12 +94,12 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           Sessão Concluída!
         </h2>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
-          Como foi o estudo em <strong>{topicTitle}</strong>?
+          {elapsedMinutes(durationMinutes, secondsLeft)} min de foco realizados. Como foi o estudo em <strong>{topicTitle}</strong>?
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
           <button
-            onClick={() => onFinish('nebuloso', durationMinutes)}
+            onClick={() => finishSession('nebuloso')}
             className="btn-retro"
             style={{ background: 'var(--surface-light)', color: 'var(--rose-alert)', padding: '12px' }}
           >
@@ -69,7 +107,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           </button>
 
           <button
-            onClick={() => onFinish('razoavel', durationMinutes)}
+            onClick={() => finishSession('razoavel')}
             className="btn-retro"
             style={{ background: 'var(--surface-light)', color: 'var(--amber-warm)', padding: '12px' }}
           >
@@ -77,7 +115,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           </button>
 
           <button
-            onClick={() => onFinish('firme', durationMinutes)}
+            onClick={() => finishSession('firme')}
             className="btn-retro"
             style={{ background: 'var(--sage-calm)', color: '#1A1823', padding: '12px' }}
           >
@@ -135,7 +173,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
       {!hasStarted ? <button className="btn-retro" onClick={startSession} style={{ background: 'var(--amber-warm)', color: '#1A1823', width: '100%', maxWidth: '280px', padding: '12px' }}>▶ Começar foco de {durationMinutes} min</button> : <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '280px' }}>
         <button
-          onClick={() => setIsRunning(!isRunning)}
+          onClick={() => isRunning ? pauseSession() : startSession()}
           className="btn-retro"
           style={{
             flex: 1,
@@ -148,7 +186,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
         </button>
 
         <button
-          onClick={() => setIsReflecting(true)}
+          onClick={concludeSession}
           className="btn-retro"
           style={{
             flex: 1,
@@ -162,7 +200,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
       </div>}
 
       <button
-        onClick={onCancel}
+        onClick={cancelSession}
         style={{
           background: 'none',
           border: 'none',

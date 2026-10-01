@@ -75,8 +75,8 @@ export const BossArena: React.FC<BossArenaProps> = ({ topics, onStartFocus, onAd
 
             const badgeLabel = {
               firme: '●●● Firme',
-              razoavel: '●●○ Razoável',
-              nebuloso: '●○○ Nebuloso'
+              razoavel: '●●○ Fluindo',
+              nebuloso: '●○○ Travado'
             }[topic.familiarity];
 
             return (

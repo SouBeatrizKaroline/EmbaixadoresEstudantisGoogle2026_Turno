@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { TimeOfDay, ActiveTab, Task, BossTopic, FinancePot, TopicFamiliarity } from './types';
 import { ResourceHUD } from './components/ResourceHUD';
 import { Room } from './components/room/Room';
@@ -10,17 +10,17 @@ import { RescueModal } from './components/RescueModal';
 import { BottomNavigation } from './components/BottomNavigation';
 import { RestModal } from './components/RestModal';
 import { StarterSetup, WelcomeModal } from './components/WelcomeModal';
+import { stateKey, parseSavedState, readStorage, writeStorage, periodForTime, linkedFocusTask, completeFocusTask, addMoney } from './state';
 
 export const App: React.FC = () => {
-  const stateKey = 'turno-state-v2';
   // Estado Temporal e Navegação
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('afternoon');
   const [activeTab, setActiveTab] = useState<ActiveTab>('room');
   const [isRescueOpen, setIsRescueOpen] = useState(false);
   const [isRestOpen, setIsRestOpen] = useState(false);
-  const [isWelcomeOpen, setIsWelcomeOpen] = useState(() => !localStorage.getItem('turno-onboarding-v1'));
+  const [isWelcomeOpen, setIsWelcomeOpen] = useState(() => !readStorage('turno-onboarding-v1'));
   const [focusTopic, setFocusTopic] = useState<string>('Árvores Binárias');
-  const [focusTaskTitle, setFocusTaskTitle] = useState<string>();
+  const [focusTaskId, setFocusTaskId] = useState<string>();
   const [dayLabel, setDayLabel] = useState('Meu dia');
   const [sleepPlan, setSleepPlan] = useState({ bedtime: '23:00', wakeTime: '07:00' });
   const [lastSleep, setLastSleep] = useState<{ bedtime: string; wakeTime: string; quality: string; duration: number }>();
@@ -57,15 +57,18 @@ export const App: React.FC = () => {
   const [toast, setToast] = useState('');
   const [undo, setUndo] = useState<(() => void) | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [storageUnavailable, setStorageUnavailable] = useState(false);
+  const toastTimer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
   useEffect(() => {
-    const saved = localStorage.getItem(stateKey) || localStorage.getItem('turno-state-v1');
-    if (!saved) return;
+    const saved = readStorage(stateKey) || readStorage('turno-state-v1');
     try {
-      const state = JSON.parse(saved) as Partial<{ timeOfDay: TimeOfDay; ap: number; tasks: Task[]; topics: BossTopic[]; pots: FinancePot[]; dayLabel: string; sleepPlan: typeof sleepPlan; lastSleep: typeof lastSleep; focusMinutes: number }>;
+      const state = saved ? parseSavedState(saved) : {};
       if (state.timeOfDay) setTimeOfDay(state.timeOfDay);
       if (typeof state.ap === 'number') setAp(state.ap);
-      if (state.tasks) setTasks(state.tasks.map(task => task.id === '1' || task.id === '3' || task.id === '7' || task.id.startsWith('context-') ? { ...task, isFixed: false } : task));
+      if (state.tasks) setTasks(state.tasks);
       if (state.topics) setTopics(state.topics);
       if (state.pots) setPots(state.pots);
       if (state.dayLabel) setDayLabel(state.dayLabel);
@@ -73,47 +76,52 @@ export const App: React.FC = () => {
       if (state.lastSleep) setLastSleep(state.lastSleep);
       if (typeof state.focusMinutes === 'number') setFocusMinutes(state.focusMinutes);
     } catch {
-      localStorage.removeItem(stateKey);
+      // Invalid stored data falls back to defaults; hydration must still finish.
     }
     setHydrated(true);
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(stateKey, JSON.stringify({ timeOfDay, ap, tasks, topics, pots, dayLabel, sleepPlan, lastSleep, focusMinutes }));
+    setStorageUnavailable(!writeStorage(stateKey, JSON.stringify({ timeOfDay, ap, tasks, topics, pots, dayLabel, sleepPlan, lastSleep, focusMinutes })));
   }, [hydrated, timeOfDay, ap, tasks, topics, pots, dayLabel, sleepPlan, lastSleep, focusMinutes]);
 
   const announce = (message: string) => {
+    setUndo(null);
+    window.clearTimeout(toastTimer.current);
     setToast(message);
-    window.setTimeout(() => setToast(''), 2600);
+    toastTimer.current = window.setTimeout(() => { setToast(''); setUndo(null); }, 8000);
   };
 
   // Ações de Tarefas
   const handleCompleteTask = (id: string) => {
-    const previous = tasks;
+    const previous = tasks.find(task => task.id === id);
+    if (!previous) return;
     setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'completed' } : t));
-    setUndo(() => () => setTasks(previous));
     announce('Bloco concluído. Se foi sem querer, você pode desfazer.');
+    setUndo(() => () => setTasks(current => current.map(task => task.id === id ? previous : task)));
   };
 
   const handlePostponeTask = (id: string) => {
-    const previous = tasks;
     const task = tasks.find(item => item.id === id);
+    if (!task || task.isFixed) return;
     const availableMargin = tasks.filter(item => item.status === 'pending' && !item.isFixed && item.id !== id).length;
     setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'postponed' } : t));
-    setUndo(() => () => setTasks(previous));
     announce(`${task?.title || 'Bloco'} reorganizado. Custo de oportunidade: ${availableMargin ? `${availableMargin} margem(ns) livre(s) disponível(is)` : 'a próxima escolha ocupará outro espaço'}.`);
+    setUndo(() => () => setTasks(current => current.map(item => item.id === id ? task : item)));
   };
 
   const handleRemoveTask = (id: string) => {
-    const previous = tasks;
+    const previous = tasks.find(task => task.id === id);
+    const index = tasks.findIndex(task => task.id === id);
+    if (!previous || previous.isFixed) return;
     setTasks(prev => prev.filter(t => t.id !== id));
-    setUndo(() => () => setTasks(previous));
     announce('Bloco removido. Se foi sem querer, você pode desfazer.');
+    setUndo(() => () => setTasks(current => [...current.slice(0, index), previous, ...current.slice(index)]));
   };
 
   const handleAddTask = (task: Omit<Task, 'id' | 'status'>) => {
-    setTasks(prev => [...prev, { ...task, id: 'custom-' + Date.now(), status: 'pending' }]);
+    setTasks(prev => [...prev, { ...task, id: 'custom-' + crypto.randomUUID(), status: 'pending' }]);
     announce('Novo bloco adicionado ao seu turno.');
   };
 
@@ -125,13 +133,13 @@ export const App: React.FC = () => {
   // Ações de Foco
   const handleStartFocus = (topicTitle: string = 'Árvores Binárias', taskTitle?: string) => {
     setFocusTopic(topicTitle);
-    setFocusTaskTitle(taskTitle || tasks.find(task => task.title.includes(topicTitle) && task.status === 'pending')?.title);
+    setFocusTaskId((taskTitle ? tasks.find(task => task.title === taskTitle && task.status === 'pending') : linkedFocusTask(tasks, topicTitle))?.id);
     setActiveTab('focus');
   };
 
   const handleAddTopic = (title: string) => {
-    setTopics(prev => [...prev, { id: 'topic-' + Date.now(), title, familiarity: 'nebuloso' }]);
-    announce('Novo desafio cadastrado como nebuloso. Você pode começar pelo foco.');
+    setTopics(prev => [...prev, { id: 'topic-' + crypto.randomUUID(), title, familiarity: 'nebuloso' }]);
+    announce('Novo desafio cadastrado como Travado. Você pode começar pelo foco.');
   };
 
   const handleRecover = (amount: number, message: string) => {
@@ -145,12 +153,13 @@ export const App: React.FC = () => {
     setDayLabel(newDayLabel);
     setSleepPlan({ bedtime: setup.sleepTime, wakeTime: setup.wakeTime });
     const starterTasks: Task[] = [
-      ...(setup.className ? [{ id: 'context-class', title: setup.className, timeLabel: setup.classTime, period: setup.classTime < '12:00' ? 'morning' as const : 'afternoon' as const, status: 'pending' as const }] : []),
-      ...(setup.hasWork ? [{ id: 'context-work', title: setup.workTitle || 'Trabalho', timeLabel: setup.workTime, period: setup.workTime < '12:00' ? 'morning' as const : 'afternoon' as const, status: 'pending' as const }] : []),
-      { id: 'context-rest', title: 'Higiene do sono: desacelerar', timeLabel: setup.sleepTime, period: 'dawn', status: 'pending' }
+      ...(setup.className ? [{ id: 'context-class', title: setup.className, timeLabel: setup.classTime, period: periodForTime(setup.classTime), isFixed: true, status: 'pending' as const }] : []),
+      ...(setup.hasWork ? [{ id: 'context-work', title: setup.workTitle || 'Trabalho', timeLabel: setup.workTime, period: periodForTime(setup.workTime), isFixed: true, status: 'pending' as const }] : []),
+      { id: 'context-rest', title: 'Higiene do sono: desacelerar', timeLabel: setup.sleepTime, period: periodForTime(setup.sleepTime), status: 'pending' }
     ];
     setTasks(starterTasks);
-    localStorage.setItem('turno-onboarding-v1', 'done');
+    writeStorage('turno-onboarding-v1', 'done');
+    setLastSleep(undefined);
     setIsWelcomeOpen(false);
     announce('Seu turno começou. Você pode adaptar tudo ao longo da semana.');
   };
@@ -159,7 +168,7 @@ export const App: React.FC = () => {
     setFocusMinutes(prev => prev + minutes);
     setTopics(prev => prev.map(t => t.title === focusTopic ? { ...t, familiarity: result } : t));
     // Conclui também a tarefa de estudo caso exista na lista
-    setTasks(prev => prev.map(t => (t.title.includes(focusTopic) || t.title === focusTaskTitle) ? { ...t, status: 'completed' } : t));
+    setTasks(prev => completeFocusTask(prev, focusTaskId));
     setActiveTab('boss');
     announce(`Check-in salvo. ${minutes} min de foco registrados.`);
   };
@@ -172,7 +181,8 @@ export const App: React.FC = () => {
 
   // Ações Financeiras
   const handleAddExpense = (potId: 'essential' | 'flexible' | 'reserve', amount: number) => {
-    setPots(prev => prev.map(p => p.id === potId ? { ...p, spent: p.spent + amount } : p));
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    setPots(prev => prev.map(p => p.id === potId ? { ...p, spent: addMoney(p.spent, amount) } : p));
     announce('Gasto registrado no pote escolhido.');
   };
 
@@ -196,6 +206,7 @@ export const App: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+      {storageUnavailable && <p role="alert">O navegador não permitiu salvar seu progresso. Os dados desta sessão podem se perder ao fechar ou recarregar a página.</p>}
       {/* Topo / HUD */}
       <ResourceHUD
         timeOfDay={timeOfDay}
@@ -240,14 +251,16 @@ export const App: React.FC = () => {
           />
         )}
 
-        {activeTab === 'focus' && (
+        <div hidden={activeTab !== 'focus'}>
           <FocusSession
+            key={`${focusTopic}:${focusTaskId || ''}`}
+            isActive={activeTab === 'focus'}
             topicTitle={focusTopic}
-            linkedTaskTitle={focusTaskTitle}
+            linkedTaskTitle={tasks.find(task => task.id === focusTaskId)?.title}
             onFinish={handleFinishFocus}
             onCancel={() => setActiveTab('boss')}
           />
-        )}
+        </div>
 
         {activeTab === 'finance' && (
           <FinancePots
@@ -265,7 +278,7 @@ export const App: React.FC = () => {
         onApplyRescue={handleApplyRescue}
       />
       <RestModal isOpen={isRestOpen} onClose={() => setIsRestOpen(false)} onRecover={handleRecover} sleepPlan={sleepPlan} lastSleep={lastSleep} onRecordSleep={handleRecordSleep} />
-      {isWelcomeOpen && <WelcomeModal onStart={handleStartWeek} />}
+      {isWelcomeOpen && <WelcomeModal onStart={handleStartWeek} onClose={readStorage('turno-onboarding-v1') ? () => setIsWelcomeOpen(false) : undefined} />}
 
       {/* Barra de Navegação Inferior Acessível */}
       <BottomNavigation

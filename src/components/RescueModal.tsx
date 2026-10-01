@@ -1,3 +1,4 @@
+import { useDialogFocus } from '../useDialogFocus';
 import React from 'react';
 
 interface RescueModalProps {
@@ -11,10 +12,13 @@ export const RescueModal: React.FC<RescueModalProps> = ({
   onClose,
   onApplyRescue
 }) => {
+  const dialogRef = useDialogFocus(isOpen, onClose);
   if (!isOpen) return null;
 
   return (
     <div
+      ref={dialogRef}
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-labelledby="rescue-title"
@@ -68,8 +72,8 @@ export const RescueModal: React.FC<RescueModalProps> = ({
           gap: '6px'
         }}>
           <div>✓ Adiar tarefas secundárias da tarde sem culpa</div>
-          <div>✓ Pausar exigências do Boss por 24 horas</div>
-          <div>✓ Proteger o bloco da noite para sono restaurador</div>
+          <div>✓ Manter compromissos fixos e prazos informados</div>
+          <div>✓ Registrar uma pausa no ritmo do dia (+15 AP)</div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>

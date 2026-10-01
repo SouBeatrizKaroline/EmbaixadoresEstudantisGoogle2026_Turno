@@ -14,8 +14,9 @@ interface RoomProps {
 }
 
 export const Room: React.FC<RoomProps> = ({ timeOfDay, onNavigate, onStartFocus, dayProgress, dayLabel, onOpenRest, roomState, tasks }) => {
-  const nextTask = tasks.find(task => task.status === 'pending');
-  const fixedTask = tasks.find(task => task.status === 'pending' && task.isFixed);
+  const currentTasks = tasks.filter(task => task.status === 'pending' && task.period === timeOfDay).sort((a, b) => a.timeLabel.localeCompare(b.timeLabel));
+  const nextTask = currentTasks[0];
+  const fixedTask = currentTasks.find(task => task.isFixed);
   return (
     <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
       {/* Cenário Central do Quarto */}
