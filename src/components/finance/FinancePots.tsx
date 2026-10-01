@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { budgetPercent } from '../../state';
 import { FinancePot } from '../../types';
 
 interface FinancePotsProps {
@@ -13,8 +14,8 @@ export const FinancePots: React.FC<FinancePotsProps> = ({ pots, onAddExpense, on
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = parseFloat(valueInput.replace(',', '.'));
-    if (!isNaN(parsed) && parsed > 0) {
+    const parsed = Number(valueInput.replace(',', '.'));
+    if (Number.isFinite(parsed) && parsed >= 0.01) {
       onAddExpense(selectedPot, parsed);
       setValueInput('');
     }
@@ -35,7 +36,7 @@ export const FinancePots: React.FC<FinancePotsProps> = ({ pots, onAddExpense, on
       {/* Os Três Potes */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {pots.map(pot => {
-          const percent = Math.min(Math.round((pot.spent / pot.limit) * 100), 100);
+          const percent = budgetPercent(pot.spent, pot.limit);
 
           return (
             <div key={pot.id} className="card-pixel" style={{ padding: '12px' }}>
@@ -44,7 +45,7 @@ export const FinancePots: React.FC<FinancePotsProps> = ({ pots, onAddExpense, on
                   {pot.label}
                 </span>
                 <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                  R$ {pot.spent} <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>/ R$ {pot.limit}</span>
+                  R$ {pot.spent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>/ R$ {pot.limit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </span>
               </div>
 
@@ -90,7 +91,9 @@ export const FinancePots: React.FC<FinancePotsProps> = ({ pots, onAddExpense, on
             </span>
             <input
               type="number"
-              step="any"
+              step="0.01"
+              min="0.01"
+              aria-label="Valor do gasto"
               placeholder="0,00"
               value={valueInput}
               onChange={e => setValueInput(e.target.value)}
@@ -114,6 +117,7 @@ export const FinancePots: React.FC<FinancePotsProps> = ({ pots, onAddExpense, on
                 type="button"
                 key={pId}
                 onClick={() => setSelectedPot(pId)}
+                aria-pressed={selectedPot === pId}
                 style={{
                   padding: '6px 4px',
                   fontSize: '0.7rem',

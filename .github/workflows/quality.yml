@@ -21,7 +21,10 @@ jobs:
           cache: npm
       - name: Instalar dependências
         run: npm ci
+      - name: Testar regressões
+        run: npm test
       - name: Verificar código
         run: npm run lint
       - name: Gerar aplicação
         run: npm run build
+

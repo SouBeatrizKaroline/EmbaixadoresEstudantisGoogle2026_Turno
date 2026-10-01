@@ -64,7 +64,7 @@ export const ResourceHUD: React.FC<ResourceHUDProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span style={{ fontSize: '0.9rem' }}>💰</span>
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--gold-coin)' }}>
-              R$ {flexibleBudget} <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>margem</span>
+              R$ {flexibleBudget.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>margem</span>
             </span>
           </div>
         </div>

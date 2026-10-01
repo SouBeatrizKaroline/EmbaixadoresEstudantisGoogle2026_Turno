@@ -146,6 +146,7 @@ button, input {
 .welcome-check { display:flex !important; flex-direction:row !important; align-items:center; gap:8px; font-weight:500 !important; }
 .welcome-check input { width:18px; min-height:18px; margin:0; accent-color:var(--amber-warm); }
 .toast__undo { margin-left:10px; border:0; border-bottom:1px solid var(--gold-coin); background:none; color:var(--gold-coin); font:700 .75rem var(--font-sans); cursor:pointer; }
+.toast--visible .toast__undo { pointer-events: auto; }
 .week-reset { margin-top:9px; padding:0; border:0; background:none; color:var(--slate-focus); font:600 .7rem var(--font-sans); text-decoration:underline; cursor:pointer; }
 @media (max-width:520px) { .welcome-guide { grid-template-columns:1fr; } .welcome-form__grid { grid-template-columns:1fr; } }
 

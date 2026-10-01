@@ -85,8 +85,8 @@ src/
 React, TypeScript, Vite, SVG/CSS, ESLint e GitHub Actions. Não há backend, autenticação, banco, integração bancária ou rastreamento.
 
 ```bash
-git clone https://github.com/SouBeatrizKaroline/TURNO_theGame.git
-cd TURNO_theGame
+git clone https://github.com/SouBeatrizKaroline/EmbaixadoresEstudantisGoogle2026_Turno.git
+cd EmbaixadoresEstudantisGoogle2026_Turno
 npm install
 npm run dev
 ```
@@ -94,6 +94,7 @@ npm run dev
 Validação de produção:
 
 ```bash
+npm test
 npm run lint
 npm run build
 npm run preview

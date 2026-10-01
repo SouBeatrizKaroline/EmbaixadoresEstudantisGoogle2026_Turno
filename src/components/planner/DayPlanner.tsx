@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { isTime } from '../../state';
 import { Task, DayBlockPeriod } from '../../types';
 
 interface DayPlannerProps {
@@ -28,6 +29,7 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
   const [editTime, setEditTime] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
   const [editFixed, setEditFixed] = useState(false);
+  const [editPeriod, setEditPeriod] = useState<DayBlockPeriod>('afternoon');
   const blocks: { period: DayBlockPeriod; label: string; icon: string }[] = [
     { period: 'morning', label: 'Manhã (06h - 12h)', icon: '🌅' },
     { period: 'afternoon', label: 'Tarde (12h - 18h)', icon: '☀️' },
@@ -66,7 +68,7 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
         </label>
         <div className="add-block__row">
           <label>Horário
-            <input type="time" value={timeLabel} onChange={(event) => setTimeLabel(event.target.value)} />
+            <input type="time" required value={timeLabel} onChange={(event) => setTimeLabel(event.target.value)} />
           </label>
           <label>Turno
             <select value={period} onChange={(event) => setPeriod(event.target.value as DayBlockPeriod)}>
@@ -122,6 +124,7 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
                         {editingId === task.id ? <div style={{ display: 'grid', gap: '5px' }}>
                           <input value={editTitle} onChange={event => setEditTitle(event.target.value)} aria-label="Título do bloco" />
                           <div style={{ display: 'flex', gap: '5px' }}><input type="time" value={editTime} onChange={event => setEditTime(event.target.value)} aria-label="Horário do bloco" /><input type="date" value={editDueDate} onChange={event => setEditDueDate(event.target.value)} aria-label="Prazo do bloco" /></div>
+                          <label>Turno<select aria-label="Turno do bloco" value={editPeriod} onChange={event => setEditPeriod(event.target.value as DayBlockPeriod)}><option value="morning">Manhã</option><option value="afternoon">Tarde</option><option value="night">Noite</option><option value="dawn">Descanso</option></select></label>
                           <label className="add-block__check"><input type="checkbox" checked={editFixed} onChange={event => setEditFixed(event.target.checked)} /> Compromisso fixo</label>
                         </div> : <>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -141,15 +144,15 @@ export const DayPlanner: React.FC<DayPlannerProps> = ({
                         </>}
                         {task.status === 'postponed' && (
                           <span style={{ fontSize: '0.65rem', color: 'var(--amber-warm)' }}>
-                            → Reorganizado para amanhã
+                            → Reorganizado (sem nova data definida)
                           </span>
                         )}
                       </div>
 
                       {/* Ações inline imediatas em 1 toque */}
                       <div style={{ display: 'flex', gap: '4px' }}>
-                        {editingId === task.id ? <><button className="btn-retro" onClick={() => { onEditTask(task.id, { title: editTitle.trim() || task.title, timeLabel: editTime, dueDate: editDueDate || undefined, isFixed: editFixed }); setEditingId(undefined); }}>Salvar</button><button className="btn-retro" onClick={() => setEditingId(undefined)}>Cancelar</button></> : <>
-                        <button className="btn-retro" onClick={() => { setEditingId(task.id); setEditTitle(task.title); setEditTime(task.timeLabel); setEditDueDate(task.dueDate || ''); setEditFixed(Boolean(task.isFixed)); }} aria-label={`Editar ${task.title}`}>✎</button>
+                        {editingId === task.id ? <><button className="btn-retro" disabled={!isTime(editTime) || !editTitle.trim()} onClick={() => { onEditTask(task.id, { title: editTitle.trim() || task.title, timeLabel: editTime, period: editPeriod, dueDate: editDueDate || undefined, isFixed: editFixed }); setEditingId(undefined); }}>Salvar</button><button className="btn-retro" onClick={() => setEditingId(undefined)}>Cancelar</button></> : <>
+                        <button className="btn-retro" onClick={() => { setEditingId(task.id); setEditTitle(task.title); setEditTime(task.timeLabel); setEditDueDate(task.dueDate || ''); setEditFixed(Boolean(task.isFixed)); setEditPeriod(task.period); }} aria-label={`Editar ${task.title}`}>✎</button>
                         {task.status !== 'completed' && (
                           <button
                             onClick={() => onCompleteTask(task.id)}
